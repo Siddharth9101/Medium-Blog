@@ -19,7 +19,7 @@ blogRouter.use("/*", async (c, next) => {
   if (!header || !header.startsWith("Bearer")) {
     return c.json(
       {
-        msg: "unauthorized",
+        message: "unauthorized",
       },
       403
     );
@@ -39,7 +39,7 @@ blogRouter.use("/*", async (c, next) => {
     } else {
       return c.json(
         {
-          msg: "Unauthorized",
+          message: "Unauthorized",
         },
         401
       );
@@ -47,14 +47,14 @@ blogRouter.use("/*", async (c, next) => {
   } catch (error) {
     return c.json(
       {
-        msg: "Unauthorized",
+        message: "Unauthorized",
       },
       401
     );
   }
 });
 
-blogRouter.post("/", async (c) => {
+blogRouter.post("/create", async (c) => {
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
@@ -108,7 +108,7 @@ blogRouter.post("/", async (c) => {
   }
 });
 
-blogRouter.put("/", async (c) => {
+blogRouter.put("/edit", async (c) => {
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
@@ -170,6 +170,13 @@ blogRouter.get("/get/:id", async (c) => {
   try {
     const post = await prisma.post.findFirst({
       where: { id },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        published: true,
+        author: { select: { name: true, id: true } },
+      },
     });
 
     return c.json({ post }, 200);
@@ -186,7 +193,16 @@ blogRouter.get("/bulk", async (c) => {
     datasourceUrl: c.env?.DATABASE_URL,
   }).$extends(withAccelerate());
   try {
-    const posts = await prisma.post.findMany();
+    const posts = await prisma.post.findMany({
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        published: true,
+        author: { select: { name: true, id: true } },
+        authorId: true,
+      },
+    });
     return c.json({ posts }, 200);
   } catch (error) {
     console.log(error);

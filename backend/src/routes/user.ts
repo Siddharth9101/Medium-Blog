@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { sign } from "hono/jwt";
+import { sign, verify } from "hono/jwt";
 import { PrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { signupInput, signinInput } from "@sidd9101/medium-common";
@@ -52,6 +52,21 @@ userRouter.post("/signup", async (c) => {
     );
   }
 
+  const invalidUser = await prisma.user.findUnique({
+    where: {
+      email: body.email,
+    },
+  });
+
+  if (invalidUser) {
+    return c.json(
+      {
+        message: "User already exists",
+      },
+      404
+    );
+  }
+
   const hashedPassword = await hashPassword(body.password);
 
   try {
@@ -75,9 +90,9 @@ userRouter.post("/signup", async (c) => {
       },
       201
     );
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
-    return c.json({ error }, 500);
+    return c.json({ message: error.message || "Error" }, 500);
   } finally {
     prisma.$disconnect();
   }
@@ -133,7 +148,7 @@ userRouter.post("/signin", async (c) => {
     if (!user) {
       return c.json(
         {
-          msg: "User not found",
+          message: "User not found",
         },
         404
       );
@@ -143,7 +158,7 @@ userRouter.post("/signin", async (c) => {
     if (hashedPassword !== user.password) {
       return c.json(
         {
-          msg: "Wrong credentials",
+          message: "Wrong credentials",
         },
         401
       );
@@ -160,10 +175,22 @@ userRouter.post("/signin", async (c) => {
       },
       200
     );
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
-    return c.json({ error }, 500);
+    return c.json({ message: error.message || "Error" }, 500);
   } finally {
     prisma.$disconnect();
+  }
+});
+
+userRouter.get("/me", async (c) => {
+  const token = c.req.param("token") || "";
+  try {
+    const payload = await verify(token, c.env.JWT_SECRET);
+
+    return c.json(payload, 200);
+  } catch (error: any) {
+    console.log(error);
+    return c.json({ message: error.message || "Error" }, 401);
   }
 });
